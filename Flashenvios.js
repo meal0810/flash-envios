@@ -1,57 +1,81 @@
-const WEBHOOK = "https://TU-N8N/webhook/chat";
+const WEBHOOK = "https://jossmedina.app.n8n.cloud/webhook/flash-envios-chat";
 
 async function sendMessage() {
 
     const input = document.getElementById("question");
 
-    if(input.value=="") return;
+    if (input.value.trim() === "") return;
 
     const messages = document.getElementById("messages");
 
-    messages.innerHTML += `<div class="user">${input.value}</div>`;
-
     const question = input.value;
 
-    input.value="";
+    messages.innerHTML += `<div class="user">${question}</div>`;
 
-    messages.scrollTop=messages.scrollHeight;
+    input.value = "";
 
-    try{
+    // Indicador de carga
+    messages.innerHTML += `
+        <div class="bot loading" id="loading">
+            ⏳ Asistente Flash está escribiendo...
+        </div>
+    `;
 
-        const response = await fetch(WEBHOOK,{
+    messages.scrollTop = messages.scrollHeight;
 
-            method:"POST",
+    try {
 
-            headers:{
-                "Content-Type":"application/json"
+        const response = await fetch(WEBHOOK, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
             },
-
-            body:JSON.stringify({
-                message:question
+            body: JSON.stringify({
+                message: question,
+                sessionId: localStorage.getItem("flashSession") || crypto.randomUUID()
             })
-
         });
 
         const data = await response.json();
 
-        messages.innerHTML += `<div class="bot">${data.reply}</div>`;
+        // Guarda la sesión para mantener memoria
+        if (!localStorage.getItem("flashSession")) {
+            localStorage.setItem("flashSession", crypto.randomUUID());
+        }
 
-    }catch{
+        document.getElementById("loading").remove();
 
-        messages.innerHTML += `<div class="bot">⚠️ No se pudo conectar con el asistente.</div>`;
+        const reply =
+            data.reply ??
+            data.output ??
+            data.text ??
+            data.response ??
+            "No recibí respuesta del asistente.";
 
+        messages.innerHTML += `
+            <div class="bot">
+                ${reply}
+            </div>
+        `;
+
+    } catch (error) {
+
+        if (document.getElementById("loading")) {
+            document.getElementById("loading").remove();
+        }
+
+        messages.innerHTML += `
+            <div class="bot">
+                ⚠️ Error al conectar con el asistente.
+            </div>
+        `;
     }
 
-    messages.scrollTop=messages.scrollHeight;
-
+    messages.scrollTop = messages.scrollHeight;
 }
 
-document.getElementById("question").addEventListener("keypress",(e)=>{
-
-    if(e.key==="Enter"){
-
+document.getElementById("question").addEventListener("keypress", function(e) {
+    if (e.key === "Enter") {
         sendMessage();
-
     }
-
 });
